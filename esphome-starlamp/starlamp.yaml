@@ -4,7 +4,7 @@ esphome:
 esp32:
   board: upesy_wroom
   framework:
-    type: esp-idf
+    type: arduino
 
 # Enable logging
 logger:
@@ -24,6 +24,65 @@ wifi:
   ap:
     ssid: "Starlamp Fallback Hotspot"
     password: "0gg0hRUvSK0N"
+
+output:
+  - platform: ledc
+    pin: 19
+    id: motor_output
+    frequency: 1220
+
+  - platform: ledc
+    pin: 33
+    id: output_r
+    frequency: 1220
+    inverted: true
+
+  - platform: ledc
+    pin: 25
+    id: output_g
+    frequency: 1220
+    inverted: true
+
+  - platform: ledc
+    pin: 26
+    id: output_b
+    frequency: 1220
+    inverted: true
+
+  - platform: ledc
+    pin: 27
+    id: output_w
+    frequency: 1220
+    inverted: true
+
+  - platform: ledc
+    pin: 32
+    id: output_brightness
+    frequency: 1220
+
+number:
+  - platform: homeassistant
+    id: motor_speed
+    entity_id: input_number.star_lamp_motor_speed # Helper entity   defined in home assistant itself
+    on_value: 
+      then:
+        - output.set_level:
+            id: motor_output
+            level: !lambda "if (x/20>4) { return 100; } else { return x/20; }" # Helper slider goes in a range of 0-100%, however the speed stays pretty much the same after about 5% of the PWM's max
+            # You could probably achieve this or better by finding the correct PWM frequency but im too lazy for that
+
+light:
+  - platform: rgbw
+    name: "Star Lamp Color"
+    red: output_r
+    green: output_g
+    blue: output_b
+    white: output_w
+    gamma_correct: 0
+  - platform: monochromatic
+    name: "Star Lamp Brightness"
+    output: output_brightness
+
 
 captive_portal:
     
