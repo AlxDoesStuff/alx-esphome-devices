@@ -79,8 +79,7 @@ light:
     green: output_g
     blue: output_b
     white: output_w
-    gamma_correct: 0
-
+    gamma_correct: false
   - platform: monochromatic #brightness control
     name: "Star Lamp Brightness"
     output: output_brightness

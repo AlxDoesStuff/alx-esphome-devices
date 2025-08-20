@@ -13,16 +13,33 @@ ble_client:
   - mac_address: !secret led_address
     id: ble_led
     auto_connect: true
+  - mac_address: !secret sunset_lamp_address
+    id: ble_lamp
+    auto_connect: true
+
 globals:
-  - id: r_current
+  - id: r_current_led
     type: int
     restore_value: no
     initial_value: '0'
-  - id: g_current
+  - id: g_current_led
     type: int
     restore_value: no
     initial_value: '0'
-  - id: b_current
+  - id: b_current_led
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+  - id: r_current_lamp
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_current_lamp
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: b_current_lamp
     type: int
     restore_value: no
     initial_value: '0'
@@ -42,11 +59,11 @@ wifi:
 light:
   - platform: rgb
     name: "LED Strip"
-    red: output_r
-    green: output_g
-    blue: output_b
+    red: led_output_r
+    green: led_output_g
+    blue: led_output_b
     gamma_correct: false
-    default_transition_length: 200ms
+    default_transition_length: 0s
     on_turn_on:
       - ble_client.ble_write:
           id: ble_led
@@ -60,10 +77,37 @@ light:
           service_uuid: FFD5
           characteristic_uuid: FFD9
           value: [0xcc, 0x24, 0x33] #should turn the LEDs off
+      - ble_client.ble_write:
+          id: ble_led
+          service_uuid: FFD5
+          characteristic_uuid: FFD9
+          value: [0x56, 0x00, 0x00, 0x00, 0x01, 0xf0, 0xaa] #set r g and b to zero
+
+
+  - platform: rgb
+    name: "Sunset Lamp"
+    red: lamp_output_r
+    green: lamp_output_g
+    blue: lamp_output_b
+    gamma_correct: false
+    default_transition_length: 0s
+    on_turn_on:
+      - ble_client.ble_write:
+          id: ble_lamp
+          service_uuid: FFF0
+          characteristic_uuid: FFF3
+          value: [0x55, 0x01, 0xff, 0x06, 0x01, 0xa3] #should turn the Lamp on
+
+    on_turn_off:
+      - ble_client.ble_write:
+          id: ble_lamp
+          service_uuid: FFF0
+          characteristic_uuid: FFF3
+          value: [0x55, 0x01, 0xff, 0x06, 0x00, 0xa4] #should turn the Lamp off
 
 output:
   - platform: template
-    id: output_r
+    id: led_output_r
     type: float
     write_action:
       - ble_client.ble_write:
@@ -72,14 +116,13 @@ output:
           characteristic_uuid: FFD9
           value: !lambda |- 
             int r = 255 * state; //output goes from 0 to 1 (percentage), multiplying 255 by percentage gets desired r value
-            int g = id(g_current); //Get stored value of g 
-            int b = id(b_current); //Get stored value of b
-            id(r_current) = r; // Update stored value of r
+            int g = id(g_current_led); //Get stored value of g 
+            int b = id(b_current_led); //Get stored value of b
+            id(r_current_led) = r; // Update stored value of r
             return {0x56, r, g, b, 0x01, 0xf0, 0xaa};  //should update the color accordingly
 
-
   - platform: template
-    id:  output_g
+    id: led_output_g
     type: float
     write_action:
       - ble_client.ble_write:
@@ -88,14 +131,13 @@ output:
           characteristic_uuid: FFD9
           value: !lambda |- 
             int g = 255 * state; //output goes from 0 to 1 (percentage), multiplying 255 by percentage gets desired g value
-            int r = id(r_current); //Get stored value of r 
-            int b = id(b_current); //Get stored value of b
-            id(g_current) = g; // Update stored value of g
+            int r = id(r_current_led); //Get stored value of r 
+            int b = id(b_current_led); //Get stored value of b
+            id(g_current_led) = g; // Update stored value of g
             return {0x56, r, g, b, 0x01, 0xf0, 0xaa};  //should update the color accordingly
 
-
   - platform: template
-    id:  output_b
+    id:  led_output_b
     type: float
     write_action:
       - ble_client.ble_write:
@@ -104,10 +146,72 @@ output:
           characteristic_uuid: FFD9
           value: !lambda |- 
             int b = 255 * state; //output goes from 0 to 1 (percentage), multiplying 255 by percentage gets desired b value
-            int g = id(g_current); //Get stored value of g 
-            int r = id(r_current); //Get stored value of r
-            id(b_current) = b; // Update stored value of r
+            int g = id(g_current_led); //Get stored value of g 
+            int r = id(r_current_led); //Get stored value of r
+            id(b_current_led) = b; // Update stored value of r
             return {0x56, r, g, b, 0x01, 0xf0, 0xaa};  //should update the color accordingly
+
+
+  - platform: template
+    id:  lamp_output_r
+    type: float
+    write_action:
+      - ble_client.ble_write:
+          id: ble_lamp
+          service_uuid: FFF0
+          characteristic_uuid: FFF3
+          value: !lambda |- 
+            int r = 255 * state;
+            int g = id(g_current_lamp);
+            int b = id(b_current_lamp); 
+            id(r_current_lamp) = r;
+            int finalByte = 160;
+            if (r > 0) { finalByte++; };
+            if (g > 0) { finalByte++; };
+            if (b > 0) { finalByte++; };
+            if (r == 0 && g == 0 && b == 0) { finalByte = 161; }
+            return {0x55, 0x03, 0xff, 0x08, r, g, b, finalByte}; 
+
+  - platform: template
+    id:  lamp_output_g
+    type: float
+    write_action:
+      - ble_client.ble_write:
+          id: ble_lamp
+          service_uuid: FFF0
+          characteristic_uuid: FFF3
+          value: !lambda |- 
+            int g = 255 * state;
+            int r = id(r_current_lamp);
+            int b = id(b_current_lamp); 
+            id(g_current_lamp) = g;
+            int finalByte = 160;
+            if (r > 0) { finalByte++; };
+            if (g > 0) { finalByte++; };
+            if (b > 0) { finalByte++; };
+            if (r == 0 && g == 0 && b == 0) { finalByte = 161; }
+            return {0x55, 0x03, 0xff, 0x08, r, g, b, finalByte}; 
+
+  - platform: template
+    id:  lamp_output_b
+    type: float
+    write_action:
+      - ble_client.ble_write:
+          id: ble_lamp
+          service_uuid: FFF0
+          characteristic_uuid: FFF3
+          value: !lambda |- 
+            int b = 255 * state;
+            int g = id(g_current_lamp);
+            int r = id(r_current_lamp); 
+            id(b_current_lamp) = b;
+            int finalByte = 160;
+            if (r > 0) { finalByte++; };
+            if (g > 0) { finalByte++; };
+            if (b > 0) { finalByte++; };
+            if (r == 0 && g == 0 && b == 0) { finalByte = 161; }
+
+            return {0x55, 0x03, 0xff, 0x08, r, g, b, finalByte}; 
 
 
 logger:
