@@ -1,5 +1,6 @@
 esphome:
   name: starlamp
+  friendly_name: Starlamp
 
 esp32:
   board: upesy_wroom
@@ -72,14 +73,15 @@ number:
             # You could probably achieve this or better by finding the correct PWM frequency but im too lazy for that
 
 light:
-  - platform: rgbw
+  - platform: rgbw #color control
     name: "Star Lamp Color"
     red: output_r
     green: output_g
     blue: output_b
     white: output_w
     gamma_correct: 0
-  - platform: monochromatic
+
+  - platform: monochromatic #brightness control
     name: "Star Lamp Brightness"
     output: output_brightness
 
