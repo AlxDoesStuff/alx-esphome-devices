@@ -5,10 +5,27 @@ esphome:
 esp32:
   board: upesy_wroom
   framework:
-    type: esp-idf
+    type: arduino
 
-# Enable logging
-logger:
+esp32_ble:
+
+ble_client:
+  - mac_address: !secret led_address
+    id: ble_led
+    auto_connect: true
+globals:
+  - id: r_current
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: g_current
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: b_current
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 # Enable Home Assistant API
 api:
@@ -21,10 +38,77 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "Blelamps Fallback Hotspot"
-    password: "QjIrlP2OGYex"
 
-captive_portal:
+light:
+  - platform: rgb
+    name: "LED Strip"
+    red: output_r
+    green: output_g
+    blue: output_b
+    gamma_correct: false
+    default_transition_length: 200ms
+    on_turn_on:
+      - ble_client.ble_write:
+          id: ble_led
+          service_uuid: FFD5
+          characteristic_uuid: FFD9
+          value: [0xcc, 0x23, 0x33] #should turn the LEDs on
+
+    on_turn_off:
+      - ble_client.ble_write:
+          id: ble_led
+          service_uuid: FFD5
+          characteristic_uuid: FFD9
+          value: [0xcc, 0x24, 0x33] #should turn the LEDs off
+
+output:
+  - platform: template
+    id: output_r
+    type: float
+    write_action:
+      - ble_client.ble_write:
+          id: ble_led
+          service_uuid: FFD5
+          characteristic_uuid: FFD9
+          value: !lambda |- 
+            int r = 255 * state; //output goes from 0 to 1 (percentage), multiplying 255 by percentage gets desired r value
+            int g = id(g_current); //Get stored value of g 
+            int b = id(b_current); //Get stored value of b
+            id(r_current) = r; // Update stored value of r
+            return {0x56, r, g, b, 0x01, 0xf0, 0xaa};  //should update the color accordingly
+
+
+  - platform: template
+    id:  output_g
+    type: float
+    write_action:
+      - ble_client.ble_write:
+          id: ble_led
+          service_uuid: FFD5
+          characteristic_uuid: FFD9
+          value: !lambda |- 
+            int g = 255 * state; //output goes from 0 to 1 (percentage), multiplying 255 by percentage gets desired g value
+            int r = id(r_current); //Get stored value of r 
+            int b = id(b_current); //Get stored value of b
+            id(g_current) = g; // Update stored value of g
+            return {0x56, r, g, b, 0x01, 0xf0, 0xaa};  //should update the color accordingly
+
+
+  - platform: template
+    id:  output_b
+    type: float
+    write_action:
+      - ble_client.ble_write:
+          id: ble_led
+          service_uuid: FFD5
+          characteristic_uuid: FFD9
+          value: !lambda |- 
+            int b = 255 * state; //output goes from 0 to 1 (percentage), multiplying 255 by percentage gets desired b value
+            int g = id(g_current); //Get stored value of g 
+            int r = id(r_current); //Get stored value of r
+            id(b_current) = b; // Update stored value of r
+            return {0x56, r, g, b, 0x01, 0xf0, 0xaa};  //should update the color accordingly
+
+
+logger:
     
